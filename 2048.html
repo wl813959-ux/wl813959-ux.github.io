@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>2048 合成大数字</title>
+    <style>
+        * {
+            user-select: none;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(145deg, #bbada0, #8f7a66);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', monospace;
+            padding: 20px;
+            margin: 0;
+        }
+        .game-2048 {
+            background: #9c8b78;
+            border-radius: 32px;
+            padding: 24px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.4);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #f9f6f2;
+            text-shadow: 2px 2px 0 #776e65;
+        }
+        .score-box {
+            background: #776e65;
+            padding: 8px 20px;
+            border-radius: 20px;
+            color: #fff;
+            font-weight: bold;
+            text-align: center;
+        }
+        .score-label {
+            font-size: 0.7rem;
+        }
+        .score-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            background: #cdc1b4;
+            padding: 12px;
+            border-radius: 24px;
+        }
+        .cell {
+            aspect-ratio: 1;
+            background: #cdc1b4;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 800;
+            transition: 0.08s linear;
+            color: #776e65;
+        }
+        .cell[data-value="2"] { background: #eee4da; color: #776e65; }
+        .cell[data-value="4"] { background: #ede0c8; color: #776e65; }
+        .cell[data-value="8"] { background: #f2b179; color: #f9f6f2; }
+        .cell[data-value="16"] { background: #f59563; color: #f9f6f2; }
+        .cell[data-value="32"] { background: #f67c5f; color: #f9f6f2; }
+        .cell[data-value="64"] { background: #f65e3b; color: #f9f6f2; }
+        .cell[data-value="128"] { background: #edcf72; color: #f9f6f2; font-size: 1.4rem; }
+        .cell[data-value="256"] { background: #edcc61; color: #f9f6f2; font-size: 1.4rem; }
+        .cell[data-value="512"] { background: #edc850; color: #f9f6f2; font-size: 1.3rem; }
+        .cell[data-value="1024"] { background: #edc53f; color: #f9f6f2; font-size: 1.2rem; }
+        .cell[data-value="2048"] { background: #edc22e; color: #f9f6f2; font-size: 1.2rem; }
+        button {
+            background: #8f7a66;
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 12px 28px;
+            border-radius: 28px;
+            margin-top: 20px;
+            width: 100%;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #9b8a76;
+        }
+        @media (max-width: 480px) {
+            .cell { font-size: 1.2rem; }
+            .title { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-2048">
+    <div class="header">
+        <div class="title">2048</div>
+        <div class="score-box">
+            <div class="score-label">SCORE</div>
+            <div class="score-value" id="score2048">0</div>
+        </div>
+    </div>
+    <div class="grid" id="grid2048"></div>
+    <button id="reset2048">🔄 新游戏</button>
+    <div class="game-message" id="message2048" style="text-align:center; margin-top:12px; color:#f9f6f2; font-weight:bold;"></div>
+</div>
+<script>
+    let board = Array(4).fill().map(() => Array(4).fill(0));
+    let score = 0;
+    let gameActive = true;
+    const gridEl = document.getElementById('grid2048');
+    const scoreSpan = document.getElementById('score2048');
+    const msgSpan = document.getElementById('message2048');
+
+    function addRandomTile() {
+        let empty = [];
+        for(let i=0;i<4;i++){
+            for(let j=0;j<4;j++){
+                if(board[i][j] === 0) empty.push([i,j]);
+            }
+        }
+        if(empty.length === 0) return;
+        const [x,y] = empty[Math.floor(Math.random() * empty.length)];
+        board[x][y] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    function updateUI() {
+        for(let i=0;i<4;i++){
+            for(let j=0;j<4;j++){
+                const val = board[i][j];
+                const cell = gridEl.children[i*4 + j];
+                cell.textContent = val === 0 ? '' : val;
+                cell.setAttribute('data-value', val);
+            }
+        }
+        scoreSpan.textContent = score;
+    }
+
+    function isGameOver() {
+        for(let i=0;i<4;i++){
+            for(let j=0;j<4;j++){
+                if(board[i][j] === 0) return false;
+                if(j<3 && board[i][j] === board[i][j+1]) return false;
+                if(i<3 && board[i][j] === board[i+1][j]) return false;
+            }
+        }
+        return true;
+    }
+
+    function mergeLine(line) {
+        let filtered = line.filter(v => v !== 0);
+        let newLine = [];
+        let gained = 0;
+        for(let i=0;i<filtered.length;i++){
+            if(i+1 < filtered.length && filtered[i] === filtered[i+1]){
+                let merged = filtered[i] * 2;
+                newLine.push(merged);
+                gained += merged;
+                i++;
+            } else {
+                newLine.push(filtered[i]);
+            }
+        }
+        while(newLine.length < 4) newLine.push(0);
+        return { newLine, gained };
+    }
+
+    function move(direction) {
+        if(!gameActive) return false;
+        let oldBoard = JSON.parse(JSON.stringify(board));
+        let totalGained = 0;
+
+        if(direction === 'left') {
+            for(let i=0;i<4;i++){
+                let { newLine, gained } = mergeLine(board[i]);
+                board[i] = newLine;
+                totalGained += gained;
+            }
+        } else if(direction === 'right') {
+            for(let i=0;i<4;i++){
+                let row = [...board[i]].reverse();
+                let { newLine, gained } = mergeLine(row);
+                board[i] = newLine.reverse();
+                totalGained += gained;
+            }
+        } else if(direction === 'up') {
+            for(let j=0;j<4;j++){
+                let col = [board[0][j], board[1][j], board[2][j], board[3][j]];
+                let { newLine, gained } = mergeLine(col);
+                for(let i=0;i<4;i++) board[i][j] = newLine[i];
+                totalGained += gained;
+            }
+        } else if(direction === 'down') {
+            for(let j=0;j<4;j++){
+                let col = [board[3][j], board[2][j], board[1][j], board[0][j]];
+                let { newLine, gained } = mergeLine(col);
+                for(let i=0;i<4;i++) board[3-i][j] = newLine[i];
+                totalGained += gained;
+            }
+        }
+
+        if(JSON.stringify(oldBoard) !== JSON.stringify(board)) {
+            score += totalGained;
+            updateUI();
+            addRandomTile();
+            updateUI();
+            if(isGameOver()) {
+                gameActive = false;
+                msgSpan.textContent = '💀 游戏结束！点击新游戏 💀';
+            } else {
+                msgSpan.textContent = '';
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function initGame() {
+        board = Array(4).fill().map(() => Array(4).fill(0));
+        score = 0;
+        gameActive = true;
+        msgSpan.textContent = '';
+        addRandomTile();
+        addRandomTile();
+        updateUI();
+    }
+
+    function handleKey(e) {
+        const key = e.key;
+        if(!gameActive) return;
+        if(key === 'ArrowLeft') move('left');
+        else if(key === 'ArrowRight') move('right');
+        else if(key === 'ArrowUp') move('up');
+        else if(key === 'ArrowDown') move('down');
+    }
+
+    function buildGrid() {
+        gridEl.innerHTML = '';
+        for(let i=0;i<16;i++){
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.setAttribute('data-value', 0);
+            gridEl.appendChild(cell);
+        }
+    }
+    buildGrid();
+    initGame();
+    window.addEventListener('keydown', handleKey);
+    document.getElementById('reset2048').addEventListener('click', () => { initGame(); });
+</script>
+</body>
+</html>
